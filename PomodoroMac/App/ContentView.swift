@@ -87,7 +87,7 @@ struct ContentView: View {
             }
 
             HStack(spacing: 8) {
-                ForEach(model.mode == .focus ? [15, 25, 45, 60] : [5, 10, 15], id: \.self) { minutes in
+                ForEach(model.mode == .focus ? [15, 30, 45, 60] : [5, 10, 15], id: \.self) { minutes in
                     Button("\(minutes)m") {
                         if model.mode == .focus { model.selectFocusPreset(minutes) }
                         else { model.selectBreakPreset(minutes) }
@@ -98,15 +98,21 @@ struct ContentView: View {
 
             if model.mode == .focus {
                 styledTextField("Activity (required)", text: $model.activity)
-                Picker("Domain", selection: $model.selectedDomain) {
-                    Text("Choose domain…").tag(FocusDomain?.none)
-                    ForEach(FocusDomain.allCases) { domain in
-                        Text(domain.rawValue).tag(Optional(domain))
+                HStack {
+                    Text("Domain")
+                        .foregroundStyle(palette.textPrimary)
+                    Spacer()
+                    Picker("Domain", selection: $model.selectedDomain) {
+                        Text("Choose domain…").tag(FocusDomain?.none)
+                        ForEach(FocusDomain.allCases) { domain in
+                            Text(domain.rawValue).tag(Optional(domain))
+                        }
                     }
+                    .labelsHidden()
                 }
-                .foregroundStyle(palette.textPrimary)
-                .padding(.horizontal, 8)
+                .padding(.horizontal, 10)
                 .padding(.vertical, 5)
+                .frame(maxWidth: .infinity)
                 .background(palette.field, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                 styledTextField("Context (optional)", text: $model.context)
             } else {

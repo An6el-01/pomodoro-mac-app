@@ -48,8 +48,8 @@ final class CompletionAlertState: ObservableObject {
     private var dismissal: Cancellable?
     private var generation = 0
 
-    init(scheduler: CompletionAlertScheduling = TaskCompletionAlertScheduler()) {
-        self.scheduler = scheduler
+    init(scheduler: CompletionAlertScheduling? = nil) {
+        self.scheduler = scheduler ?? TaskCompletionAlertScheduler()
     }
 
     func show(message: String) {
@@ -91,7 +91,7 @@ final class PomodoroViewModel: ObservableObject {
 
     init(logger: ActivityLogging = JSONLActivityLogger(),
          preferences: DomainPreferenceStore = DomainPreferenceStore(),
-         alertScheduler: CompletionAlertScheduling = TaskCompletionAlertScheduler()) {
+         alertScheduler: CompletionAlertScheduling? = nil) {
         controller = PomodoroSessionController(logger: logger)
         self.preferences = preferences
         completionAlert = CompletionAlertState(scheduler: alertScheduler)
