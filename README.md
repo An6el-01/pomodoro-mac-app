@@ -4,7 +4,7 @@ A compact native SwiftUI Pomodoro timer for macOS 13 and newer. It is a normal D
 
 ## Features
 
-- Focus timer: 25-minute default, directly typed 1–180 minute duration, presets, required activity and domain
+- Focus timer: 30-minute default, directly typed 1–180 minute duration, presets, required activity and domain
 - Break timer: 5-minute default, directly typed 1–180 minute duration, no metadata, never logged
 - Start, pause, resume, and cancel; paused wall-clock time is excluded
 - Completion restores the window, posts a notification, plays a subtle system sound, and shows a prominent in-app alert for five seconds
