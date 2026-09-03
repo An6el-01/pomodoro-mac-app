@@ -1,4 +1,5 @@
 import XCTest
+import Combine
 @testable import PomodoroMac
 
 final class SessionControllerTests: XCTestCase {
@@ -115,6 +116,74 @@ final class MainWindowLifecycleControllerTests: XCTestCase {
     }
 }
 
+final class DurationInputTests: XCTestCase {
+    func testEditingAcceptsDigitsAndAllowsTemporaryEmptyText() {
+        XCTAssertEqual(DurationInput.sanitized("4a5"), "45")
+        XCTAssertEqual(DurationInput.sanitized("4٢5"), "45")
+        XCTAssertEqual(DurationInput.sanitized(""), "")
+    }
+
+    func testCommitClampsMinutesToSupportedRange() {
+        XCTAssertEqual(DurationInput.committedMinutes(from: "0", fallback: 25), 1)
+        XCTAssertEqual(DurationInput.committedMinutes(from: "181", fallback: 25), 180)
+        XCTAssertEqual(DurationInput.committedMinutes(from: "", fallback: 25), 25)
+        XCTAssertEqual(DurationInput.committedMinutes(from: "045", fallback: 25), 45)
+        XCTAssertEqual(DurationInput.committedMinutes(from: "000001", fallback: 25), 1)
+        XCTAssertEqual(DurationInput.committedMinutes(from: String(repeating: "9", count: 30), fallback: 25), 180)
+    }
+}
+
+@MainActor
+final class DurationEditingIntegrationTests: XCTestCase {
+    func testCommittedTextUpdatesFocusAndBreakCountdownsIndependently() {
+        let defaults = UserDefaults(suiteName: #function)!
+        defaults.removePersistentDomain(forName: #function)
+        let model = PomodoroViewModel(preferences: DomainPreferenceStore(defaults: defaults))
+
+        model.updateDurationInput("42")
+        model.commitDurationInput()
+        XCTAssertEqual(model.focusMinutes, 42)
+        XCTAssertEqual(model.remainingSeconds, 42 * 60)
+
+        model.mode = .breakTime
+        model.durationChanged()
+        XCTAssertEqual(model.durationInput, "5")
+        model.updateDurationInput("9")
+        model.commitDurationInput()
+        XCTAssertEqual(model.breakMinutes, 9)
+        XCTAssertEqual(model.remainingSeconds, 9 * 60)
+        XCTAssertEqual(model.focusMinutes, 42)
+    }
+}
+
+@MainActor
+final class CompletionAlertStateTests: XCTestCase {
+    func testAlertDismissesAfterExactlyFiveSeconds() {
+        let scheduler = ManualCompletionAlertScheduler()
+        let alert = CompletionAlertState(scheduler: scheduler)
+
+        alert.show(message: "Focus complete")
+
+        XCTAssertEqual(alert.message, "Focus complete")
+        XCTAssertEqual(scheduler.delays, [5])
+        scheduler.fire(at: 0)
+        XCTAssertNil(alert.message)
+    }
+
+    func testOldDismissalCannotHideNewerAlert() {
+        let scheduler = ManualCompletionAlertScheduler()
+        let alert = CompletionAlertState(scheduler: scheduler)
+        alert.show(message: "Focus complete")
+        alert.show(message: "Break complete")
+
+        scheduler.fire(at: 0, evenIfCancelled: true)
+        XCTAssertEqual(alert.message, "Break complete")
+
+        scheduler.fire(at: 1)
+        XCTAssertNil(alert.message)
+    }
+}
+
 private enum TestError: Error { case writeFailed }
 
 private final class RecordingActivityLogger: ActivityLogging {
@@ -128,6 +197,29 @@ private final class RecordingActivityLogger: ActivityLogging {
         attemptCount += 1
         if let error { throw error }
         entries.append(entry)
+    }
+}
+
+@MainActor
+private final class ManualCompletionAlertScheduler: CompletionAlertScheduling {
+    private final class Token: Cancellable {
+        var isCancelled = false
+        func cancel() { isCancelled = true }
+    }
+
+    private var jobs: [(token: Token, action: @MainActor () -> Void)] = []
+    private(set) var delays: [TimeInterval] = []
+
+    func schedule(after delay: TimeInterval, action: @escaping @MainActor () -> Void) -> Cancellable {
+        let token = Token()
+        delays.append(delay)
+        jobs.append((token, action))
+        return token
+    }
+
+    func fire(at index: Int, evenIfCancelled: Bool = false) {
+        let job = jobs[index]
+        if evenIfCancelled || !job.token.isCancelled { job.action() }
     }
 }
 
